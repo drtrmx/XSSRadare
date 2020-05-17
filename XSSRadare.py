@@ -7,6 +7,7 @@ import urllib3
 import time
 import os
 import argparse
+import re
 from termcolor import cprint
 from banner import banner
 from pyvirtualdisplay import Display
@@ -161,13 +162,26 @@ def print_negative(text):
 def print_scan_finish(xssnum):
     message = "[+] Scan finished , number of found XSS : %i " % xssnum
     cprint(message, "blue")
+    
+def split_cookies(cookies_option, url):
+    ret_cookies = []
+    regexp = "^https?://([^/]+)(/[^?#]*)?"
+    regexp_c = re.compile(regexp)
+    regexp_r = regexp_c.findall(url)
+    path = regexp_r[0][1] or '/'
+    cookies = cookies_option.split(";")
+    cookies_arr = [opt.split("=") for opt in cookies]
+    for i in range(0, len(cookies_arr)):
+        ret_cookies.append({'name': cookies_arr[i][0], 'value': cookies_arr[i][1], 'path': path})
+    return ret_cookies
+
+def add_cookies(cookie_dict, browser):
+    for cookie in cookie_dict:
+        browser.add_cookie(cookie)
+
 def fuzz_get_urls(url):
     if cookies_option is not None:
-        cookies = cookies_option.split(":")
-        cookies_name = cookies[0]
-        cookies_value= cookies[1]
-        cookies_path = cookies[2]
-        cookie_dict = {'name': cookies_name, 'value': cookies_value, 'path': cookies_path}
+        cookie_dict = split_cookies(cookies_option, url)
     number_of_found_xss = 0
     scan_url = get_url(url)
     params = decode_url(url)
@@ -181,7 +195,7 @@ def fuzz_get_urls(url):
             browser = webdriver.Firefox()
             if cookies_option is not None:
                 browser.get(url)
-                browser.add_cookie(cookie_dict)
+                add_cookies(cookie_dict, browser)
             browser.get(url_to_send)
             time.sleep(timeout)
 
